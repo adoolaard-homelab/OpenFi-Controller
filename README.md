@@ -2,7 +2,27 @@
 
 A self-hosted Next.js dashboard for OpenWrt routers using the `uhttpd-mod-ubus` JSON-RPC API. It provides a UniFi-inspired dark network overview, client table, and a server-side OpenWrt client with cached session renewal.
 
-## Setup
+## Start with Docker Compose (recommended)
+
+1. Create your local configuration and enter the OpenWrt credentials:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Build and start the dashboard:
+
+   ```bash
+   docker compose up -d --build
+   ```
+
+3. Open `http://localhost:3000`. To use a different host port, set `OPENFI_PORT` in `.env` before starting the service.
+
+Use `docker compose logs -f` to view logs and `docker compose down` to stop it. The service restarts automatically after a reboot unless it is explicitly stopped.
+
+The container connects to `OPENWRT_URL` from its own network namespace. Make sure that the configured router address is reachable from Docker (a normal LAN IP address usually is).
+
+## Local development
 
 ```bash
 cp .env.example .env.local
