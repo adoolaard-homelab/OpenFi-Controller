@@ -1,39 +1,25 @@
 # OpenFi Controller
 
-A self-hosted Next.js dashboard for OpenWrt routers using the `uhttpd-mod-ubus` JSON-RPC API. It provides a UniFi-inspired dark network overview, client table, and a server-side OpenWrt client with cached session renewal.
+A self-hosted, UniFi-inspired controller interface for one or more OpenWrt routers using the `uhttpd-mod-ubus` JSON-RPC API.
 
-## Start with Docker Compose (recommended)
+## Pair devices from the UI
 
-1. Create your local configuration and enter the OpenWrt credentials:
+Open **OpenWrt Devices** and select **Add OpenWrt Device**. Enter the router's uBus endpoint (normally `https://router-ip/ubus`), username, and password. Credentials are stored server-side in `.openfi/routers.json` (or `OPENFI_DATA_PATH`) with owner-only file permissions and are never returned by the controller API.
 
-   ```bash
-   cp .env.example .env
-   ```
+No router-specific `.env` settings are required. `.env` is optional and only supports app deployment settings such as `OPENFI_PORT` and `OPENFI_DATA_PATH`; see `.env.example`.
 
-2. Build and start the dashboard:
-
-   ```bash
-   docker compose up -d --build
-   ```
-
-3. Open `http://localhost:3000`. To use a different host port, set `OPENFI_PORT` in `.env` before starting the service.
-
-Use `docker compose logs -f` to view logs and `docker compose down` to stop it. The service restarts automatically after a reboot unless it is explicitly stopped.
-
-The container connects to `OPENWRT_URL` from its own network namespace. Make sure that the configured router address is reachable from Docker (a normal LAN IP address usually is).
-
-## Local development
+## Run locally
 
 ```bash
-cp .env.example .env.local
-# Edit OPENWRT_URL, OPENWRT_USERNAME, and OPENWRT_PASSWORD
 npm install
 npm run dev
 ```
 
-Open `http://localhost:3000`. The live integration endpoint is `GET /api/overview`; it returns a 503 JSON response with the connection error until router credentials are configured and reachable.
+Visit `http://localhost:3000`, pair your routers, and use **Client Devices** for the cross-router inventory and per-client drawer.
 
-> The OpenWrt request client deliberately disables TLS certificate validation for the configured local endpoint, to support default/self-signed router certificates. Use only on a trusted local network.
+## Data and polling
+
+`database.sql` provides the production PostgreSQL schema for routers, clients, sessions, and traffic logs. `lib/polling-service.ts` provides a concurrent multi-router polling primitive for a scheduled worker; it collects system and DHCP snapshots. A production deployment should persist these snapshots into the schema and extend the OpenWrt collector with `iwinfo` / `hostapd_cli` data for wireless metrics and traffic counters.
 
 ## Checks
 

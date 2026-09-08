@@ -1,0 +1,7 @@
+-- Production relational schema for a persistent controller store (PostgreSQL-compatible).
+CREATE TABLE routers (id UUID PRIMARY KEY, name TEXT NOT NULL, endpoint TEXT NOT NULL UNIQUE, username TEXT NOT NULL, credential_ciphertext TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), last_seen_at TIMESTAMPTZ);
+CREATE TABLE clients (id UUID PRIMARY KEY, mac_address MACADDR NOT NULL UNIQUE, name TEXT, vendor TEXT, hostname TEXT, operating_system TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());
+CREATE TABLE client_sessions (id UUID PRIMARY KEY, client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE, router_id UUID NOT NULL REFERENCES routers(id) ON DELETE CASCADE, connected_at TIMESTAMPTZ NOT NULL, disconnected_at TIMESTAMPTZ, ip_address INET, network_name TEXT, connection_type TEXT, signal_dbm SMALLINT, channel SMALLINT, bytes_down BIGINT NOT NULL DEFAULT 0, bytes_up BIGINT NOT NULL DEFAULT 0);
+CREATE TABLE traffic_logs (id UUID PRIMARY KEY, client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE, router_id UUID NOT NULL REFERENCES routers(id) ON DELETE CASCADE, recorded_at TIMESTAMPTZ NOT NULL, application TEXT, protocol TEXT, bytes_down BIGINT NOT NULL DEFAULT 0, bytes_up BIGINT NOT NULL DEFAULT 0, packets_down BIGINT NOT NULL DEFAULT 0, packets_up BIGINT NOT NULL DEFAULT 0);
+CREATE INDEX client_sessions_router_connected_idx ON client_sessions(router_id, connected_at DESC);
+CREATE INDEX traffic_logs_client_recorded_idx ON traffic_logs(client_id, recorded_at DESC);
