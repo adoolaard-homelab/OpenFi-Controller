@@ -1,4 +1,25 @@
+"use client";
+
 import Link from "next/link";
-import { LayoutDashboard, Network, Users, Settings, Radio } from "lucide-react";
-const nav = [{ href: "/", label: "Dashboard", icon: LayoutDashboard }, { href: "/topology", label: "Topology", icon: Network }, { href: "/clients", label: "Clients", icon: Users }, { href: "/settings", label: "Settings", icon: Settings }];
-export function Sidebar() { return <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-slate-800 bg-[#090e18] p-5 md:block"><div className="mb-12 flex items-center gap-3"><span className="grid h-9 w-9 place-items-center rounded-lg bg-sky-500 text-slate-950"><Radio size={19}/></span><div><strong className="block tracking-tight">OpenFi</strong><span className="text-xs text-slate-500">NETWORK CONTROLLER</span></div></div><nav className="space-y-2">{nav.map(({ href, label, icon: Icon }) => <Link className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm text-slate-400 transition hover:bg-slate-800 hover:text-white" href={href} key={href}><Icon size={18}/>{label}</Link>)}</nav><div className="absolute bottom-6 text-xs text-slate-600">OpenWrt · self-hosted</div></aside> }
+import { usePathname } from "next/navigation";
+import { Gauge, LayoutDashboard, Network, Radio, Settings, Share2, Users } from "lucide-react";
+
+const nav = [
+  { href: "/", label: "Overview", icon: LayoutDashboard },
+  { href: "/topology", label: "Topology", icon: Share2 },
+  { href: "/clients", label: "Clients", icon: Users },
+  { href: "/settings", label: "Settings", icon: Settings },
+];
+
+export function Sidebar() {
+  const pathname = usePathname();
+  return <aside className="app-sidebar">
+    <div className="site-switcher"><span className="status-dot"/> <span>OpenFi Home</span><span className="switcher-chevron">⌄</span></div>
+    <Link href="/" className="brand"><span className="brand-mark"><Radio size={18}/></span><span><strong>OpenFi</strong><small>NETWORK</small></span></Link>
+    <nav className="primary-nav">{nav.map(({ href, label, icon: Icon }) => {
+      const active = pathname === href;
+      return <Link className={`nav-item ${active ? "nav-active" : ""}`} href={href} key={href} aria-current={active ? "page" : undefined}><Icon size={20}/><span>{label}</span></Link>;
+    })}</nav>
+    <div className="sidebar-bottom"><span className="nav-item"><Gauge size={20}/><span>System</span></span><span className="controller-version">OpenWrt · self-hosted</span></div>
+  </aside>;
+}
