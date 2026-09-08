@@ -4,7 +4,7 @@ A self-hosted, UniFi-inspired controller interface for one or more OpenWrt route
 
 ## Pair devices from the UI
 
-Open **OpenWrt Devices** and select **Add OpenWrt Device**. Enter the router's uBus endpoint (normally `https://router-ip/ubus`), username, and password. Credentials are stored server-side in `.openfi/routers.json` (or `OPENFI_DATA_PATH`) with owner-only file permissions and are never returned by the controller API.
+Open **OpenWrt Devices** and select **Add OpenWrt Device**. Enter the router's uBus endpoint (normally `https://router-ip/ubus`), username, and password. Credentials are stored server-side in `.openfi/routers.json` locally and `/data/routers.json` in Docker (or `OPENFI_DATA_PATH`) with owner-only file permissions and are never returned by the controller API.
 
 No router-specific `.env` settings are required. `.env` is optional and only supports app deployment settings such as `OPENFI_PORT` and `OPENFI_DATA_PATH`; see `.env.example`.
 

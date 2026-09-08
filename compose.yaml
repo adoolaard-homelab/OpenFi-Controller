@@ -6,6 +6,8 @@ services:
       - "${OPENFI_PORT:-3000}:3000"
     env_file:
       - .env
+    volumes:
+      - openfi-data:/data
     restart: unless-stopped
     healthcheck:
       test:
@@ -17,3 +19,6 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+
+volumes:
+  openfi-data:
