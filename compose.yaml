@@ -1,0 +1,19 @@
+services:
+  openfi-controller:
+    build:
+      context: .
+    ports:
+      - "${OPENFI_PORT:-3000}:3000"
+    env_file:
+      - .env
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "require('node:http').get('http://127.0.0.1:3000', response => process.exit(response.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
