@@ -1,4 +1,6 @@
-FROM node:22-alpine AS base
+# Node 22's npm has a known `npm ci` failure on Alpine images.  Use the
+# Debian-based image so dependency installation is reliable in Docker builds.
+FROM node:22-bookworm-slim AS base
 
 ENV NEXT_TELEMETRY_DISABLED=1
 WORKDIR /app
@@ -14,7 +16,7 @@ COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
 
-FROM node:22-alpine AS runner
+FROM node:22-bookworm-slim AS runner
 
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
