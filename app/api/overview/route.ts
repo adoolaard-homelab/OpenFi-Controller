@@ -1,11 +1,9 @@
 import { NextResponse } from "next/server";
-import { openWrt } from "@/lib/openwrt";
+import { pollRouters } from "@/lib/polling-service";
+import { getRouters, publicRouter } from "@/lib/router-store";
 export const dynamic = "force-dynamic";
 export async function GET() {
-  try {
-    const [system, interfaces, clients] = await Promise.all([openWrt.getSystemInfo(), openWrt.getInterfaces(), openWrt.getDhcpClients()]);
-    return NextResponse.json({ connected: true, system, interfaces, clients, updatedAt: new Date().toISOString() });
-  } catch (error) {
-    return NextResponse.json({ connected: false, error: error instanceof Error ? error.message : "Router unavailable" }, { status: 503 });
-  }
+  const routers = await getRouters();
+  const snapshots = await pollRouters(routers);
+  return NextResponse.json({ routers: routers.map(publicRouter), snapshots, updatedAt: new Date().toISOString() });
 }

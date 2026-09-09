@@ -15,9 +15,16 @@ type Session = { id: string; expiresAt: number };
 export class OpenWrtClient {
   private session?: Session;
   private requestId = 0;
-  private readonly endpoint = process.env.OPENWRT_URL ?? "https://192.168.10.1/ubus";
-  private readonly username = process.env.OPENWRT_USERNAME ?? "root";
-  private readonly password = process.env.OPENWRT_PASSWORD;
+  private readonly endpoint: string;
+  private readonly username: string;
+  private readonly password?: string;
+
+  constructor(config: { endpoint?: string; username?: string; password?: string } = {}) {
+    // Legacy environment values remain a convenience for a single-router deployment.
+    this.endpoint = config.endpoint ?? process.env.OPENWRT_URL ?? "https://192.168.10.1/ubus";
+    this.username = config.username ?? process.env.OPENWRT_USERNAME ?? "root";
+    this.password = config.password ?? process.env.OPENWRT_PASSWORD;
+  }
 
   private async post<T>(payload: unknown): Promise<RpcEnvelope<T>> {
     const body = JSON.stringify(payload);
