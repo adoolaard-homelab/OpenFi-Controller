@@ -1,2 +1,2 @@
-import { Radio } from "lucide-react";
-export function Topbar() { return <header className="flex min-h-20 items-center justify-between border-b border-slate-800 px-5 md:px-9"><div><p className="text-sm font-medium">Network</p><p className="text-xs text-slate-500">OpenFi Controller</p></div><div className="flex items-center gap-2 text-xs text-slate-400"><Radio size={15} className="text-sky-400"/> Live data appears after a device is added</div></header>; }
+import { Bell, ChevronDown, CircleHelp, Search } from "lucide-react";
+export function Topbar() { return <header className="topbar"><div className="health"><i/> All Network Health <ChevronDown size={14}/></div><div className="top-actions"><button aria-label="Search"><Search size={18}/></button><button aria-label="Help"><CircleHelp size={18}/></button><button aria-label="Notifications" className="notification"><Bell size={18}/><b/></button><button className="avatar" aria-label="Profile">OF</button></div></header>; }
