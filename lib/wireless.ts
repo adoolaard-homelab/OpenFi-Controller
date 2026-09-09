@@ -62,6 +62,36 @@ export async function loadSsids(client: OpenWrtClient): Promise<SsidSummary[]> {
   }));
 }
 
+export type MeshSummary = {
+  section: string; meshId: string; network: string; encryption: string; disabled: boolean;
+  radioSection: string; band: Band; channel: string; up?: boolean; ifname?: string; peers: number;
+};
+
+/** 802.11s mesh point interfaces (wifi-iface sections with mode "mesh"), one adopted device's worth. */
+export async function loadMeshIfaces(client: OpenWrtClient): Promise<MeshSummary[]> {
+  const config = await client.getWirelessConfig();
+  const status = await client.getWirelessStatus().catch((): Record<string, WirelessRadioStatus> => ({}));
+  const ifaces = Object.values(config).filter((section) => section[".type"] === "wifi-iface" && section.mode === "mesh");
+  const radios: Record<string, UciSection> = {};
+  for (const section of Object.values(config)) if (section[".type"] === "wifi-device") radios[section[".name"]] = section;
+  return Promise.all(ifaces.map(async (iface) => {
+    const radioSection = String(iface.device ?? "");
+    const radio = radios[radioSection];
+    const channelOpt = radio?.channel as string | undefined;
+    const numericChannel = channelOpt && channelOpt !== "auto" ? Number(channelOpt) : undefined;
+    const radioStatus = status[radioSection];
+    const ifname = radioStatus?.interfaces?.find((entry) => (entry.config as { mesh_id?: string } | undefined)?.mesh_id === iface.mesh_id)?.ifname;
+    let peers = 0;
+    if (ifname) { try { peers = (await client.iwinfoAssoclist(ifname)).length; } catch { /* iface is down */ } }
+    return {
+      section: iface[".name"], meshId: String(iface.mesh_id ?? ""), network: String(iface.network ?? "lan"),
+      encryption: String(iface.encryption ?? "none"), disabled: iface.disabled === "1",
+      radioSection, band: bandOf(radio, numericChannel), channel: channelOpt ?? "auto",
+      up: radioStatus?.up, ifname, peers,
+    };
+  }));
+}
+
 /** Human label for a uci wireless `encryption` value (e.g. "psk2" -> "WPA2 Personal"). */
 export function securityLabel(encryption: string): string {
   if (!encryption || encryption === "none") return "Open";
