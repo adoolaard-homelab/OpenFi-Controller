@@ -1,6 +1,6 @@
 "use client";
 import { Trash2 } from "lucide-react";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { DevicePicker, NoDevices, useDeviceScope } from "@/components/device-picker";
 import { NextPhaseFeature } from "@/components/not-implemented";
 
@@ -47,8 +47,8 @@ function DhcpCard({ deviceId }: { deviceId: string }) {
   const [leases, setLeases] = useState<Lease[]>();
   const [staticLeases, setStaticLeases] = useState<StaticLease[]>([]);
   const [error, setError] = useState("");
-  const refresh = () => fetch(`/api/routers/${deviceId}/dhcp`).then((r) => r.json()).then((data) => { setLeases(data.leases ?? []); setStaticLeases(data.staticLeases ?? []); });
-  useEffect(() => { setLeases(undefined); void refresh(); }, [deviceId]);
+  const refresh = useCallback(() => fetch(`/api/routers/${deviceId}/dhcp`).then((r) => r.json()).then((data) => { setLeases(data.leases ?? []); setStaticLeases(data.staticLeases ?? []); }), [deviceId]);
+  useEffect(() => { setLeases(undefined); void refresh(); }, [refresh]);
 
   async function addReservation(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setError("");

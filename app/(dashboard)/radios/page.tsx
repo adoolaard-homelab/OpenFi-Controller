@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { DevicePicker, NoDevices, useDeviceScope } from "@/components/device-picker";
 import { NextPhaseSection, NotImplemented } from "@/components/not-implemented";
 import { RadioCard } from "@/components/radio-card";
@@ -11,8 +11,8 @@ export default function RadiosPage() {
   const [selected, setSelected] = useState<string>();
   const routers = useDeviceScope(selected, setSelected);
   const [radios, setRadios] = useState<Radio[]>();
-  const refresh = () => selected && fetch(`/api/routers/${selected}/wifi`).then((r) => r.json()).then((data) => setRadios(data.radios ?? []));
-  useEffect(() => { setRadios(undefined); void refresh(); }, [selected]);
+  const refresh = useCallback(() => selected && fetch(`/api/routers/${selected}/wifi`).then((r) => r.json()).then((data) => setRadios(data.radios ?? [])), [selected]);
+  useEffect(() => { setRadios(undefined); void refresh(); }, [refresh]);
 
   return (
     <div className="page">

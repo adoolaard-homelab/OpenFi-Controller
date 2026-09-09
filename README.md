@@ -2,6 +2,16 @@
 
 A self-hosted, UniFi-inspired controller interface for one or more OpenWrt routers using the `uhttpd-mod-ubus` JSON-RPC API.
 
+## Sign in to the controller
+
+Set `OPENFI_PASSWORD` (see `.env.example`) before starting the controller — every page and
+API route is gated behind a login screen (`/login`) that checks this password and issues a
+signed, `httpOnly` session cookie. The controller refuses to serve anything (except its own
+login and health-check routes) until `OPENFI_PASSWORD` is configured, so a fresh deployment
+fails closed instead of shipping a default or guessable password. This password is for the
+controller UI only — it is unrelated to each router's own credentials, which are entered
+separately when you pair a device.
+
 ## Pair devices from the UI
 
 Open **OpenWrt Devices** and select **Add OpenWrt Device**. Enter the router's uBus endpoint (normally `https://router-ip/ubus`), username, and password. Credentials are stored server-side in `.openfi/routers.json` locally and `/data/routers.json` in Docker (or `OPENFI_DATA_PATH`) with owner-only file permissions and are never returned by the controller API.

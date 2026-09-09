@@ -1,6 +1,6 @@
 "use client";
 import { Trash2 } from "lucide-react";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { DevicePicker, NoDevices, useDeviceScope } from "@/components/device-picker";
 
 type Route = { id: string; target: string; netmask: string; gateway: string; interface: string };
@@ -8,8 +8,8 @@ type Route = { id: string; target: string; netmask: string; gateway: string; int
 function RoutesCard({ deviceId }: { deviceId: string }) {
   const [routes, setRoutes] = useState<Route[]>();
   const [error, setError] = useState("");
-  const refresh = () => fetch(`/api/routers/${deviceId}/routes`).then((r) => r.json()).then((data) => setRoutes(data.routes ?? []));
-  useEffect(() => { setRoutes(undefined); void refresh(); }, [deviceId]);
+  const refresh = useCallback(() => fetch(`/api/routers/${deviceId}/routes`).then((r) => r.json()).then((data) => setRoutes(data.routes ?? [])), [deviceId]);
+  useEffect(() => { setRoutes(undefined); void refresh(); }, [refresh]);
 
   async function add(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setError("");

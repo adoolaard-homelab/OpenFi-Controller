@@ -1,6 +1,6 @@
 "use client";
 import { Trash2 } from "lucide-react";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { DevicePicker, NoDevices, useDeviceScope } from "@/components/device-picker";
 import { NextPhaseFeature } from "@/components/not-implemented";
 
@@ -9,8 +9,8 @@ type Forward = { id: string; name: string; proto: string; srcDPort: string; dest
 function PortForwardingCard({ deviceId }: { deviceId: string }) {
   const [forwards, setForwards] = useState<Forward[]>();
   const [error, setError] = useState("");
-  const refresh = () => fetch(`/api/routers/${deviceId}/firewall`).then((r) => r.json()).then((data) => setForwards(data.forwards ?? []));
-  useEffect(() => { setForwards(undefined); void refresh(); }, [deviceId]);
+  const refresh = useCallback(() => fetch(`/api/routers/${deviceId}/firewall`).then((r) => r.json()).then((data) => setForwards(data.forwards ?? [])), [deviceId]);
+  useEffect(() => { setForwards(undefined); void refresh(); }, [refresh]);
 
   async function add(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setError("");

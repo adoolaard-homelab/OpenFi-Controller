@@ -1,6 +1,6 @@
 "use client";
 import { Power, RotateCcw, Search, Skull, Trash2 } from "lucide-react";
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 
 const ZONES = [
   { zonename: "Coordinated Universal Time", timezone: "UTC" },
@@ -138,8 +138,8 @@ export function LogsCard({ deviceId }: { deviceId: string }) {
   const [source, setSource] = useState<"system" | "kernel">("system");
   const [lines, setLines] = useState<string[]>();
   const bottomRef = useRef<HTMLDivElement>(null);
-  const refresh = () => fetch(`/api/routers/${deviceId}/system/logs?source=${source}&lines=300`).then((r) => r.json()).then((data) => setLines(data.lines ?? []));
-  useEffect(() => { setLines(undefined); void refresh(); }, [deviceId, source]);
+  const refresh = useCallback(() => fetch(`/api/routers/${deviceId}/system/logs?source=${source}&lines=300`).then((r) => r.json()).then((data) => setLines(data.lines ?? [])), [deviceId, source]);
+  useEffect(() => { setLines(undefined); void refresh(); }, [refresh]);
   useEffect(() => { bottomRef.current?.scrollIntoView(); }, [lines]);
   return (
     <section className="panel overflow-hidden">
@@ -161,8 +161,8 @@ export function LogsCard({ deviceId }: { deviceId: string }) {
 export function ProcessesCard({ deviceId }: { deviceId: string }) {
   const [processes, setProcesses] = useState<{ pid: string; user: string; vsz: string; stat: string; command: string }[]>();
   const [killing, setKilling] = useState("");
-  const refresh = () => fetch(`/api/routers/${deviceId}/system/processes`).then((r) => r.json()).then((data) => setProcesses(data.processes ?? []));
-  useEffect(() => { setProcesses(undefined); void refresh(); }, [deviceId]);
+  const refresh = useCallback(() => fetch(`/api/routers/${deviceId}/system/processes`).then((r) => r.json()).then((data) => setProcesses(data.processes ?? [])), [deviceId]);
+  useEffect(() => { setProcesses(undefined); void refresh(); }, [refresh]);
   async function kill(pid: string) {
     if (!confirm(`Kill process ${pid}?`)) return;
     setKilling(pid); await fetch(`/api/routers/${deviceId}/system/processes?pid=${pid}`, { method: "DELETE" }); setKilling(""); void refresh();
@@ -185,8 +185,8 @@ export function OpkgCard({ deviceId }: { deviceId: string }) {
   const [packages, setPackages] = useState<{ name: string; version: string; description: string }[]>();
   const [searched, setSearched] = useState(false);
   const [busy, setBusy] = useState(""); const [error, setError] = useState("");
-  const refresh = (q = "") => fetch(`/api/routers/${deviceId}/opkg${q ? `?q=${encodeURIComponent(q)}` : ""}`).then((r) => r.json()).then((data) => { setPackages(data.packages ?? []); setSearched(data.searched); });
-  useEffect(() => { setPackages(undefined); void refresh(); }, [deviceId]);
+  const refresh = useCallback((q = "") => fetch(`/api/routers/${deviceId}/opkg${q ? `?q=${encodeURIComponent(q)}` : ""}`).then((r) => r.json()).then((data) => { setPackages(data.packages ?? []); setSearched(data.searched); }), [deviceId]);
+  useEffect(() => { setPackages(undefined); void refresh(); }, [refresh]);
 
   async function install(pkg: string) {
     setBusy(pkg); setError("");
