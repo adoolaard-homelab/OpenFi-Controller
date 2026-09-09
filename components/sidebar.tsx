@@ -1,4 +1,10 @@
+"use client";
 import Link from "next/link";
-import { LayoutDashboard, Network, Users, Settings, Radio } from "lucide-react";
-const nav = [{ href: "/", label: "Dashboard", icon: LayoutDashboard }, { href: "/routers", label: "OpenWrt Devices", icon: Network }, { href: "/clients", label: "Client Devices", icon: Users }, { href: "/settings", label: "Settings", icon: Settings }];
-export function Sidebar() { return <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-slate-800 bg-[#090e18] p-5 md:block"><div className="mb-12 flex items-center gap-3"><span className="grid h-9 w-9 place-items-center rounded-lg bg-sky-500 text-slate-950"><Radio size={19}/></span><div><strong className="block tracking-tight">OpenFi</strong><span className="text-xs text-slate-500">NETWORK CONTROLLER</span></div></div><nav className="space-y-2">{nav.map(({ href, label, icon: Icon }) => <Link className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm text-slate-400 transition hover:bg-slate-800 hover:text-white" href={href} key={href}><Icon size={18}/>{label}</Link>)}</nav><div className="absolute bottom-6 text-xs text-slate-600">OpenWrt · self-hosted</div></aside> }
+import { Activity, Cable, ChartNoAxesCombined, LayoutDashboard, Network, Radio, Router, Settings, Users, Wifi } from "lucide-react";
+import { usePathname } from "next/navigation";
+const nav = [
+ { href: "/", label: "Dashboard", icon: LayoutDashboard }, { href: "/topology", label: "Topology", icon: Network },
+ { href: "/routers", label: "Devices", icon: Router }, { href: "/clients", label: "Client Devices", icon: Users },
+ { href: "/ports", label: "Ports", icon: Cable }, { href: "/radios", label: "Radios", icon: Wifi }, { href: "/insights", label: "Insights", icon: ChartNoAxesCombined },
+];
+export function Sidebar() { const pathname=usePathname(); return <aside className="sidebar"><Link href="/" className="brand" aria-label="OpenFi home"><Radio size={22}/></Link><nav>{nav.map(({href,label,icon:Icon})=><Link title={label} className={`nav-icon ${pathname===href?"active":""}`} href={href} key={href}><Icon size={21}/><span>{label}</span></Link>)}</nav><Link title="Settings" className={`nav-icon settings ${pathname==="/settings"?"active":""}`} href="/settings"><Settings size={21}/><span>Settings</span></Link></aside> }
