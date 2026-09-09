@@ -1,3 +1,29 @@
-import { Cable, Circle } from "lucide-react";
-const rows=["Port 1","Port 2","Port 3","Port 4"];
-export default function Ports(){return <div className="page"><p className="eyebrow">Infrastructure</p><h1 className="page-title">Ports</h1><p className="subtitle">Monitor and manage switch port connections.</p><section className="panel mt-6 p-5"><div className="flex items-center justify-between"><div><h2 className="font-semibold">Express</h2><p className="mt-1 text-xs text-slate-500">OpenFi Gateway</p></div><div className="segmented"><button className="active">All</button><button>In Use</button><button>Available</button></div></div><div className="mt-7 flex gap-4">{rows.map((x,i)=><div className="flex h-24 w-28 flex-col justify-between rounded-lg border border-slate-200 p-3" key={x}><Cable size={19} className={i<2?"text-emerald-500":"text-slate-300"}/><div><b className="text-xs">{x}</b><p className="text-[10px] text-slate-400">{i<2?"GbE · Connected":"Available"}</p></div></div>)}</div></section><section className="panel mt-5 overflow-hidden"><table className="client-table min-w-[800px]"><thead><tr>{["Port","Name","Operation","Speed","Connection","Native VLAN","Activity"].map(x=><th key={x}>{x}</th>)}</tr></thead><tbody>{rows.map((x,i)=><tr key={x}><td><Circle size={10} className={i<2?"inline text-emerald-500":"inline text-slate-300"}/> {i+1}</td><td>{i===0?"WAN":"—"}</td><td>Enabled</td><td>{i<2?"GbE":"—"}</td><td>{i===0?"Internet":"—"}</td><td>Core Network</td><td>—</td></tr>)}</tbody></table></section></div>}
+"use client";
+import { useState } from "react";
+import { DevicePicker, NoDevices, useDeviceScope } from "@/components/device-picker";
+import { NotImplemented } from "@/components/not-implemented";
+
+export default function PortsPage() {
+  const [selected, setSelected] = useState<string>();
+  const routers = useDeviceScope(selected, setSelected);
+  return (
+    <div className="page">
+      <p className="eyebrow">Switching</p>
+      <h1 className="page-title">Ports</h1>
+      <p className="subtitle">Physical port link status and VLAN assignment per device.</p>
+      {!routers ? <p className="mt-8 text-sm text-slate-500">Loading devices…</p> : !routers.length ? <div className="mt-8"><NoDevices /></div> : (
+        <div className="mt-8 space-y-6">
+          <DevicePicker routers={routers} value={selected} onChange={setSelected} />
+          <NotImplemented
+            title="Port matrix"
+            description="The physical port map (link speed, up/down state) and native/tagged VLAN assignment per port is not implemented yet. It requires reading the device's switch/DSA topology over ubus, which the controller does not do yet."
+          />
+          <NotImplemented
+            title="VLAN editor"
+            description="Assigning native (untagged) and tagged VLANs per port will appear here once switch configuration is implemented."
+          />
+        </div>
+      )}
+    </div>
+  );
+}

@@ -8,6 +8,7 @@ export type SystemInfo = { uptime: number; load: number[]; memory: { total: numb
 export type NetworkAddress = { address: string; mask: number };
 export type OpenWrtInterface = { interface: string; up: boolean; l3_device?: string; proto?: string; uptime?: number; "ipv4-address"?: NetworkAddress[]; route?: { target: string; mask: number; nexthop?: string }[]; "dns-server"?: string[] };
 export type DhcpClient = { expires: number; hostname: string; macaddr: string; ipaddr: string };
+export type BoardInfo = { hostname: string; model?: string; board_name?: string; release?: { distribution?: string; version?: string; revision?: string; target?: string; description?: string } };
 
 type Session = { id: string; expiresAt: number };
 
@@ -68,6 +69,7 @@ export class OpenWrtClient {
   }
 
   async getSystemInfo() { return this.call<SystemInfo>("system", "info"); }
+  async getBoardInfo() { return this.call<BoardInfo>("system", "board"); }
   async getInterfaces() { return (await this.call<{ interface: OpenWrtInterface[] }>("network.interface", "dump")).interface; }
   async getDhcpClients() { return (await this.call<{ dhcp_leases: DhcpClient[] }>("luci-rpc", "getDHCPLeases")).dhcp_leases; }
 }

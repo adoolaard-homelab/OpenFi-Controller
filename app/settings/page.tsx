@@ -1,1 +1,2 @@
-export default function Page() { return <div className="p-5 md:p-9"><p className="mb-2 text-xs font-semibold uppercase tracking-[.2em] text-sky-400">OpenFi</p><h1 className="text-3xl font-semibold">Settings</h1><p className="mt-3 text-slate-500">This view is ready for your OpenWrt integration.</p></div>; }
+import { redirect } from "next/navigation";
+export default function SettingsIndex() { redirect("/settings/system"); }
