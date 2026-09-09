@@ -1,9 +1,81 @@
 "use client";
 import Link from "next/link";
-import { ArrowDown, ArrowUp, ChevronRight, CircleAlert, Router, Users, Wifi } from "lucide-react";
+import { Cpu, Router, Users, Wifi } from "lucide-react";
 import { useEffect, useState } from "react";
-type Snapshot={routerId:string;connected:boolean;clients?:{hostname:string;ipaddr:string;macaddr:string}[]}; type Overview={routers:{id:string;name:string}[];snapshots:Snapshot[]};
-const bars=[22,35,28,42,38,56,48,71,47,60,45,72,67,52,76,62,47,65,55,40,58,45,31,48,32,40,28,33];
-function Chart(){return <div className="mt-5"><div className="flex h-48 items-end gap-1 border-b border-dashed border-slate-200 px-2">{bars.map((h,i)=><i key={i} className="flex-1 rounded-t-sm bg-gradient-to-t from-blue-100 to-blue-500 opacity-80" style={{height:`${h}%`}}/>)}</div><div className="mt-2 flex justify-between text-[10px] text-slate-400"><span>12:00 AM</span><span>6:00 AM</span><span>12:00 PM</span><span>6:00 PM</span><span>Now</span></div></div>}
-function Metric({label,value}:{label:string;value:string}){return <div><div className="mb-2 flex justify-between text-xs"><span className="text-slate-500">{label}</span><b className="text-emerald-600">{value}</b></div><div className="h-1.5 rounded-full bg-slate-100"><div className="h-full w-full rounded-full bg-emerald-500"/></div></div>}
-export default function Dashboard(){const [data,setData]=useState<Overview>();useEffect(()=>{void fetch("/api/overview").then(r=>r.json()).then(setData).catch(()=>setData({routers:[],snapshots:[]}));},[]); const snapshots=data?.snapshots??[]; const online=snapshots.filter(x=>x.connected);const clients=online.flatMap(x=>x.clients??[]); return <div className="page"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="eyebrow">Network application</p><h1 className="page-title">Network</h1><p className="subtitle">A live overview of your OpenFi network.</p></div><div className="segmented">{["1H","1D","1W","1M"].map((x,i)=><button className={i===1?"active":""} key={x}>{x}</button>)}</div></div><div className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1fr)_300px]"><section className="panel p-5"><div className="flex items-start justify-between"><div><h2 className="font-semibold">Internet Activity</h2><p className="mt-1 text-xs text-slate-500">Primary WAN · Last 24 hours</p></div><button className="text-xs font-medium text-blue-600">View details <ChevronRight className="inline" size={14}/></button></div><div className="mt-5 flex gap-8"><div className="flex items-center gap-2"><span className="grid h-8 w-8 place-items-center rounded bg-blue-50 text-blue-600"><ArrowDown size={16}/></span><div><p className="text-xs text-slate-500">Download</p><b>324.6 GB</b></div></div><div className="flex items-center gap-2"><span className="grid h-8 w-8 place-items-center rounded bg-violet-50 text-violet-600"><ArrowUp size={16}/></span><div><p className="text-xs text-slate-500">Upload</p><b>18.2 GB</b></div></div></div><Chart/></section><section className="panel p-5"><h2 className="font-semibold">ISP Performance</h2><p className="mt-1 text-xs text-slate-500">Internet · last 24 hours</p><div className="mt-8 grid place-items-center"><div className="grid h-32 w-32 place-items-center rounded-full border-[11px] border-emerald-500"><div className="text-center"><b className="text-2xl">100%</b><p className="text-[10px] text-slate-500">Uptime</p></div></div></div><div className="mt-7 flex justify-between border-t border-slate-100 pt-4 text-xs"><span className="text-slate-500">Latency</span><b>4 ms</b></div></section></div><div className="mt-5 grid gap-5 lg:grid-cols-3"><section className="panel p-5"><div className="flex items-center justify-between"><div><h2 className="font-semibold">Network Devices</h2><p className="mt-1 text-xs text-slate-500">Infrastructure status</p></div><Router className="text-blue-600" size={19}/></div><p className="mt-6 text-3xl font-semibold">{data?.routers.length??"—"}</p><p className="mt-1 text-xs text-emerald-600">● {online.length} online</p><Link href="/routers" className="mt-5 block text-xs font-medium text-blue-600">View all devices →</Link></section><section className="panel p-5"><div className="flex items-center justify-between"><div><h2 className="font-semibold">Client Devices</h2><p className="mt-1 text-xs text-slate-500">Connected right now</p></div><Users className="text-blue-600" size={19}/></div><p className="mt-6 text-3xl font-semibold">{clients.length}</p><p className="mt-1 text-xs text-emerald-600">● All clients have excellent experience</p><Link href="/clients" className="mt-5 block text-xs font-medium text-blue-600">View client devices →</Link></section><section className="panel p-5"><div className="flex items-center justify-between"><div><h2 className="font-semibold">WiFi Experience</h2><p className="mt-1 text-xs text-slate-500">Client connectivity</p></div><Wifi className="text-blue-600" size={19}/></div><div className="mt-5 space-y-4"><Metric label="Association" value="100%"/><Metric label="Authentication" value="100%"/><Metric label="DHCP" value="100%"/></div></section></div><section className="panel mt-5 p-5"><div className="flex items-center justify-between"><div><h2 className="font-semibold">Network Health</h2><p className="mt-1 text-xs text-slate-500">Issues that may need attention</p></div><span className="status-pill"><i/> Excellent</span></div><div className="mt-5 flex items-center gap-3 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-700"><CircleAlert size={17}/> No network issues detected. Your network is operating normally.</div></section></div>}
+import { NoDevices } from "@/components/device-picker";
+import { NotImplemented } from "@/components/not-implemented";
+
+type Lease = { hostname: string; ipaddr: string; macaddr: string };
+type Snapshot = {
+  routerId: string;
+  connected: boolean;
+  system?: { uptime: number; load: number[]; memory: { total: number; free: number; available?: number } };
+  board?: { model?: string; board_name?: string };
+  clients?: Lease[];
+};
+type RouterItem = { id: string; name: string };
+type Overview = { routers: RouterItem[]; snapshots: Snapshot[] };
+
+const uptime = (seconds: number) => { const d = Math.floor(seconds / 86400), h = Math.floor((seconds % 86400) / 3600); return d ? `${d}d ${h}h` : `${h}h`; };
+
+export default function Dashboard() {
+  const [data, setData] = useState<Overview>();
+  useEffect(() => { void fetch("/api/overview").then((r) => r.json()).then(setData).catch(() => setData({ routers: [], snapshots: [] })); }, []);
+  const routers = data?.routers ?? [];
+  const snapshots = data?.snapshots ?? [];
+  const online = snapshots.filter((s) => s.connected);
+  const clients = online.flatMap((s) => s.clients ?? []);
+  const primary = online.find((s) => s.system);
+  const primaryName = primary && routers.find((r) => r.id === primary.routerId)?.name;
+  const memoryPct = primary?.system ? Math.round((1 - (primary.system.memory.available ?? primary.system.memory.free) / primary.system.memory.total) * 100) : undefined;
+
+  return (
+    <div className="page">
+      <p className="eyebrow">Overview</p>
+      <h1 className="page-title">Network Dashboard</h1>
+      <p className="subtitle">Live data from your adopted OpenWrt devices.</p>
+
+      {!data ? <p className="mt-8 text-sm text-slate-500">Loading devices…</p> : !routers.length ? <div className="mt-8"><NoDevices /></div> : (
+        <div className="mt-6 space-y-5">
+          <div className="grid gap-5 lg:grid-cols-3">
+            <section className="panel p-5">
+              <div className="flex items-center justify-between"><div><h2 className="font-semibold">OpenWrt Devices</h2><p className="mt-1 text-xs text-slate-500">Infrastructure status</p></div><Router className="text-blue-600" size={19} /></div>
+              <p className="mt-6 text-3xl font-semibold">{routers.length}</p>
+              <p className="mt-1 text-xs text-emerald-600">● {online.length} reachable</p>
+              <Link href="/routers" className="mt-5 block text-xs font-medium text-blue-600">View all devices →</Link>
+            </section>
+            <section className="panel p-5">
+              <div className="flex items-center justify-between"><div><h2 className="font-semibold">Client Devices</h2><p className="mt-1 text-xs text-slate-500">Active DHCP leases</p></div><Users className="text-blue-600" size={19} /></div>
+              <p className="mt-6 text-3xl font-semibold">{clients.length}</p>
+              <p className="mt-1 text-xs text-slate-500">Reported by {online.length} reachable device{online.length === 1 ? "" : "s"}</p>
+              <Link href="/clients" className="mt-5 block text-xs font-medium text-blue-600">View client devices →</Link>
+            </section>
+            <section className="panel p-5">
+              <div className="flex items-center justify-between"><div><h2 className="font-semibold">System Resources</h2><p className="mt-1 text-xs text-slate-500">{primaryName ?? "No device reporting yet"}</p></div><Cpu className="text-blue-600" size={19} /></div>
+              {primary?.system ? <>
+                <p className="mt-6 text-3xl font-semibold">{memoryPct}%</p>
+                <p className="mt-1 text-xs text-slate-500">Memory used · load {primary.system.load.join(" · ")} · up {uptime(primary.system.uptime)}</p>
+              </> : <p className="mt-6 text-sm text-slate-500">No device has reported system metrics yet.</p>}
+              {routers.length > 1 && <Link href="/routers" className="mt-5 block text-xs font-medium text-blue-600">View every device →</Link>}
+            </section>
+          </div>
+
+          <section className="panel overflow-hidden">
+            <div className="flex items-center justify-between border-b border-slate-200 p-5"><div><h2 className="font-semibold">Client overview</h2><p className="mt-1 text-xs text-slate-500">Current DHCP leases</p></div><Wifi className="text-blue-600" size={19} /></div>
+            {clients.length ? <div>{clients.map((client) => (
+              <div key={client.macaddr} className="flex items-center justify-between border-t border-slate-200 p-4 first:border-t-0">
+                <div><p className="font-medium">{client.hostname || client.macaddr}</p><p className="mt-0.5 text-xs text-slate-500">{client.ipaddr}</p></div>
+                <span className="status-pill"><i />Online</span>
+              </div>
+            ))}</div> : <p className="p-8 text-sm text-slate-500">No clients reported yet.</p>}
+          </section>
+
+          <div className="grid gap-5 md:grid-cols-2">
+            <NotImplemented title="Internet Activity" description="WAN download/upload throughput history. Requires collecting traffic counters over ubus, which is not implemented yet." />
+            <NotImplemented title="Network Health" description="Automated detection of WAN outages, high channel utilization and client issues. Not implemented yet." />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
