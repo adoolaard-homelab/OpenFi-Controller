@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { OpenWrtClient } from "@/lib/openwrt";
 import { getRouters, type RouterRecord } from "@/lib/router-store";
-import { loadRadios, loadSsids, securityLabel, type Band } from "@/lib/wireless";
+import { loadRadios, loadSsids, nextWifinetName, securityLabel, type Band } from "@/lib/wireless";
 export const dynamic = "force-dynamic";
 
 async function clientFor(routerId: string): Promise<{ router: RouterRecord; client: OpenWrtClient } | undefined> {
@@ -46,7 +46,7 @@ export async function GET() {
 
 type CreateTarget = { routerId: string; radioSection: string };
 export async function POST(request: Request) {
-  const body = await request.json() as { ssid?: string; network?: string; encryption?: string; key?: string; hidden?: boolean; targets?: CreateTarget[] };
+  const body = await request.json() as { ssid?: string; network?: string; encryption?: string; key?: string; hidden?: boolean; isolate?: boolean; targets?: CreateTarget[] };
   const ssid = body.ssid?.trim() ?? "";
   if (!ssid) return NextResponse.json({ error: "SSID name is required." }, { status: 400 });
   if (!body.targets?.length) return NextResponse.json({ error: "Select at least one access point radio to broadcast on." }, { status: 400 });
@@ -54,16 +54,21 @@ export async function POST(request: Request) {
   if (encryption !== "none" && (!body.key || body.key.length < 8)) return NextResponse.json({ error: "A WiFi password of at least 8 characters is required." }, { status: 400 });
 
   const errors: string[] = [];
+  // Targets are applied one at a time (not in parallel) so that, when two targets share a router (e.g. its
+  // 2.4GHz and 5GHz radios), each wifinet<N> name is computed after the previous section on that router exists.
   for (const target of body.targets) {
     const resolved = await clientFor(target.routerId);
     if (!resolved) { errors.push(`${target.routerId}: device not found`); continue; }
     try {
-      await resolved.client.uciAdd("wireless", "wifi-iface", {
+      const { client } = resolved;
+      const name = nextWifinetName(await client.getWirelessConfig());
+      await client.uciAdd("wireless", "wifi-iface", {
         device: target.radioSection, network: body.network ?? "lan", mode: "ap", ssid,
-        encryption, ...(encryption !== "none" ? { key: body.key } : {}), hidden: body.hidden ? "1" : "0", disabled: "0",
-      });
-      await resolved.client.uciCommit("wireless");
-      await resolved.client.reloadWifi();
+        encryption, ...(encryption !== "none" ? { key: body.key } : {}), hidden: body.hidden ? "1" : "0",
+        isolate: body.isolate ? "1" : "0", disabled: "0",
+      }, name);
+      await client.uciCommit("wireless");
+      await client.reloadWifi();
     } catch (error) { errors.push(`${resolved.router.name}: ${error instanceof Error ? error.message : "failed"}`); }
   }
   if (errors.length) return NextResponse.json({ error: errors.join("; ") }, { status: 502 });

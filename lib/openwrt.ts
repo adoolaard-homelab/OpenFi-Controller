@@ -65,7 +65,7 @@ export class OpenWrtClient {
 
   private async ensureSession() { if (!this.session || this.session.expiresAt - Date.now() < 60_000) await this.login(); }
 
-  private async call<T>(object: string, method: string, args: Record<string, unknown> = {}): Promise<T> {
+  private async invoke<T>(object: string, method: string, args: Record<string, unknown> = {}): Promise<RpcEnvelope<T>> {
     await this.ensureSession();
     let response = await this.post<T>({ jsonrpc: "2.0", id: ++this.requestId, method: "call", params: [this.session!.id, object, method, args] });
     if (AUTH_ERROR_CODES.has(response.result?.[0] ?? response.error?.code ?? -1)) {
@@ -73,9 +73,23 @@ export class OpenWrtClient {
       await this.ensureSession();
       response = await this.post<T>({ jsonrpc: "2.0", id: ++this.requestId, method: "call", params: [this.session!.id, object, method, args] });
     }
+    return response;
+  }
+
+  /** For RPC methods that reply with a data payload (uci get/add, session login, iwinfo, ...). */
+  private async call<T>(object: string, method: string, args: Record<string, unknown> = {}): Promise<T> {
+    const response = await this.invoke<T>(object, method, args);
     const [status, data] = response.result ?? [-1, undefined];
     if (status !== 0 || data === undefined) throw new Error(response.error?.message ?? `OpenWrt RPC ${object}.${method} failed (${status})`);
     return data;
+  }
+
+  /** For RPC methods (uci set/delete/commit, system.reboot, ...) whose ubus reply carries a status code only,
+   * no data blob — rpcd never calls ubus_send_reply for these, so `result` is `[status]` even on success. */
+  private async callVoid(object: string, method: string, args: Record<string, unknown> = {}): Promise<void> {
+    const response = await this.invoke<unknown>(object, method, args);
+    const status = response.result?.[0] ?? -1;
+    if (status !== 0) throw new Error(response.error?.message ?? `OpenWrt RPC ${object}.${method} failed (${status})`);
   }
 
   // --- Core system info (used by the polling service / device drawer) ---
@@ -93,16 +107,16 @@ export class OpenWrtClient {
     return (await this.call<{ value: UciSection }>("uci", "get", { config, section })).value;
   }
   async uciSet(config: string, section: string, values: Record<string, unknown>): Promise<void> {
-    await this.call("uci", "set", { config, section, values });
+    await this.callVoid("uci", "set", { config, section, values });
   }
   /** Creates a section. Pass `name` for a named section (e.g. "lan"), omit for an anonymous one; returns the resulting section id. */
   async uciAdd(config: string, type: string, values: Record<string, unknown> = {}, name?: string): Promise<string> {
     return (await this.call<{ section: string }>("uci", "add", { config, type, values, ...(name ? { name } : {}) })).section;
   }
   async uciDelete(config: string, section: string, options?: string[]): Promise<void> {
-    await this.call("uci", "delete", { config, section, ...(options ? { options } : {}) });
+    await this.callVoid("uci", "delete", { config, section, ...(options ? { options } : {}) });
   }
-  async uciCommit(config: string): Promise<void> { await this.call("uci", "commit", { config }); }
+  async uciCommit(config: string): Promise<void> { await this.callVoid("uci", "commit", { config }); }
   /** Persists staged changes for one or more config packages to disk. Callers still need to reload the owning service. */
   async uciApply(configs: string[]): Promise<void> { for (const config of configs) await this.uciCommit(config); }
   /** Finds the first section of a given type, e.g. the anonymous "system" or "timeserver" section in config `system`. */
@@ -124,9 +138,9 @@ export class OpenWrtClient {
   }
 
   // --- System administration ---
-  async reboot(): Promise<void> { await this.call("system", "reboot", {}); }
+  async reboot(): Promise<void> { await this.callVoid("system", "reboot", {}); }
   /** Requires the rpcd `luci` plugin (luci-mod-rpc / rpcd-mod-luci), which stock LuCI installs ship. */
-  async setPassword(username: string, password: string): Promise<void> { await this.call("luci", "setPassword", { username, password }); }
+  async setPassword(username: string, password: string): Promise<void> { await this.callVoid("luci", "setPassword", { username, password }); }
   async reloadNetwork(): Promise<void> { await this.exec(["/sbin/reload_config", "/etc/init.d/network"], ["reload"]).catch(() => this.exec(["/etc/init.d/network"], ["reload"])); }
   async reloadWifi(): Promise<void> { await this.exec(["/sbin/wifi"], ["reload"]); }
   async reloadDnsmasq(): Promise<void> { await this.exec(["/etc/init.d/dnsmasq"], ["reload"]); }

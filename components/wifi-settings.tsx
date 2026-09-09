@@ -64,6 +64,7 @@ export function CreateSsidModal({ devices, onClose, onCreated }: { devices: Wifi
       const body = {
         ssid: String(form.get("ssid") ?? ""), network: String(form.get("network") ?? "lan"),
         encryption: security, key: String(form.get("key") ?? ""), hidden: form.get("hidden") === "on",
+        isolate: form.get("isolate") === "on",
         targets: [...targets].map((key) => { const [routerId, radioSection] = key.split("|"); return { routerId, radioSection }; }),
       };
       const response = await fetch("/api/wifi", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
@@ -86,7 +87,10 @@ export function CreateSsidModal({ devices, onClose, onCreated }: { devices: Wifi
           </select></label>
         </div>
         {security !== "none" && <label>Password<input name="key" type="password" minLength={8} required placeholder="At least 8 characters" /></label>}
-        <label className="flex items-center gap-2 !text-slate-700"><input name="hidden" type="checkbox" className="!mt-0 w-auto" />Hide SSID broadcast</label>
+        <div className="grid grid-cols-2 gap-4">
+          <label className="flex items-center gap-2 !text-slate-700"><input name="hidden" type="checkbox" className="!mt-0 w-auto" />Hide SSID broadcast</label>
+          <label className="flex items-center gap-2 !text-slate-700"><input name="isolate" type="checkbox" className="!mt-0 w-auto" />Client isolation</label>
+        </div>
         <div>
           <span className="section-label !mb-1.5">Broadcast on</span>
           <div className="detail-card grid max-h-44 gap-2 overflow-y-auto">

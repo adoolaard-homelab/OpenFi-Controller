@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { ensureMeshWpad } from "@/lib/mesh";
 import { OpenWrtClient } from "@/lib/openwrt";
 import { getRouters, type RouterRecord } from "@/lib/router-store";
-import { loadMeshIfaces, loadRadios, type Band } from "@/lib/wireless";
+import { loadMeshIfaces, loadRadios, nextWifinetName, type Band } from "@/lib/wireless";
 export const dynamic = "force-dynamic";
 
 async function clientFor(routers: RouterRecord[], routerId: string) {
@@ -61,29 +61,38 @@ export async function POST(request: Request) {
   const autoWpad = body.autoWpad !== false;
 
   const routers = await getRouters();
-  const results: MeshTargetResult[] = await Promise.all(body.targets.map(async (target): Promise<MeshTargetResult> => {
-    const resolved = await clientFor(routers, target.routerId);
-    if (!resolved) return { routerId: target.routerId, routerName: target.routerId, ok: false, error: "Device not found." };
+  // Grouped by router and applied one radio at a time within a router (parallel across routers): two targets
+  // on the same router would otherwise both compute the same next wifinet<N> name and collide on uci add.
+  const byRouter = new Map<string, MeshTarget[]>();
+  for (const target of body.targets) byRouter.set(target.routerId, [...(byRouter.get(target.routerId) ?? []), target]);
+  const results: MeshTargetResult[] = (await Promise.all([...byRouter.entries()].map(async ([routerId, routerTargets]): Promise<MeshTargetResult[]> => {
+    const resolved = await clientFor(routers, routerId);
+    if (!resolved) return routerTargets.map((): MeshTargetResult => ({ routerId, routerName: routerId, ok: false, error: "Device not found." }));
     const { router, client } = resolved;
-    try {
-      let note: string | undefined;
-      if (autoWpad) {
-        const wpad = await ensureMeshWpad(client);
-        if (wpad.error) return { routerId: router.id, routerName: router.name, ok: false, error: `wpad: ${wpad.error}` };
-        if (wpad.changed) note = `Installed ${wpad.installed} for mesh encryption support.`;
+    const outcomes: MeshTargetResult[] = [];
+    for (const target of routerTargets) {
+      try {
+        let note: string | undefined;
+        if (autoWpad) {
+          const wpad = await ensureMeshWpad(client);
+          if (wpad.error) { outcomes.push({ routerId: router.id, routerName: router.name, ok: false, error: `wpad: ${wpad.error}` }); continue; }
+          if (wpad.changed) note = `Installed ${wpad.installed} for mesh encryption support.`;
+        }
+        if (target.channel && target.channel !== "auto") await client.uciSet("wireless", target.radioSection, { channel: target.channel });
+        const name = nextWifinetName(await client.getWirelessConfig());
+        await client.uciAdd("wireless", "wifi-iface", {
+          device: target.radioSection, mode: "mesh", network: "lan", mesh_id: meshId,
+          encryption, ...(encryption === "sae" ? { key: body.key } : {}), disabled: "0",
+        }, name);
+        await client.uciCommit("wireless");
+        await client.reloadWifi();
+        outcomes.push({ routerId: router.id, routerName: router.name, ok: true, note });
+      } catch (error) {
+        outcomes.push({ routerId: router.id, routerName: router.name, ok: false, error: error instanceof Error ? error.message : "Mesh setup failed." });
       }
-      if (target.channel && target.channel !== "auto") await client.uciSet("wireless", target.radioSection, { channel: target.channel });
-      await client.uciAdd("wireless", "wifi-iface", {
-        device: target.radioSection, mode: "mesh", network: "lan", mesh_id: meshId,
-        encryption, ...(encryption === "sae" ? { key: body.key } : {}), disabled: "0",
-      });
-      await client.uciCommit("wireless");
-      await client.reloadWifi();
-      return { routerId: router.id, routerName: router.name, ok: true, note };
-    } catch (error) {
-      return { routerId: router.id, routerName: router.name, ok: false, error: error instanceof Error ? error.message : "Mesh setup failed." };
     }
-  }));
+    return outcomes;
+  }))).flat();
   const ok = results.every((result) => result.ok);
   return NextResponse.json({ ok, results }, { status: ok ? 201 : 207 });
 }
