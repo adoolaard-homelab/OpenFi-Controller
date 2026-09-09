@@ -3,11 +3,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const sections = [
-  { href: "/settings/system", label: "System" },
-  { href: "/settings/networks", label: "Networks" },
   { href: "/settings/wifi", label: "WiFi" },
-  { href: "/settings/dhcp-dns", label: "DHCP & DNS" },
-  { href: "/settings/firewall", label: "Firewall" },
+  { href: "/settings/networks", label: "Networks" },
+  { href: "/settings/internet", label: "Internet" },
+  { href: "/settings/vpn", label: "VPN" },
+  { href: "/settings/security", label: "Security" },
+  { href: "/settings/routing", label: "Routing" },
+  { href: "/settings/profiles", label: "Profiles" },
+  { href: "/settings/system", label: "System" },
 ];
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
