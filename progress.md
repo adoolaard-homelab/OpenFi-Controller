@@ -148,3 +148,62 @@ reverse proxy, else the request's own URL scheme) instead of `NODE_ENV`. Verifie
 `next start` (production mode, matching Docker), and that the full login → authenticated
 `GET /` flow works with that cookie. Re-ran `tsc --noEmit` / `next lint` / `next build` —
 all clean.
+
+## 2026-09-09 — Session 3: "Create SSID" always fails with `uci.commit failed (0)`
+
+User report: creating an SSID always fails with `Main - Woonkamer: OpenWrt RPC uci.commit
+failed (0)`. Going into LuCI directly afterwards shows LuCI's own "Wireless configuration
+migration" prompt (anonymous `wifi-iface` sections need a `wifinet#` name); clicking
+"Continue" there actually finishes creating it — i.e. the change *did* reach the router,
+our own client just reported it as failed. Also flagged: the Create SSID form has too few
+settings.
+
+### Root cause (confirmed against upstream `rpcd`/`uhttpd` source)
+`OpenWrtClient.call()` in `lib/openwrt.ts` treated *any* ubus reply with no data payload
+(`response.result` being `[status]` instead of `[status, data]`) as a failure, using
+`response.error?.message ?? "OpenWrt RPC ${object}.${method} failed (${status})"` — which,
+with no `error` on the envelope either, prints exactly the reported message with the real
+status code (`0` = success) misread as a failure code.
+
+Checked `rpcd`'s `uci.c` (`openwrt/rpcd`) directly: `uci.set`, `uci.delete` and `uci.commit`
+never call `ubus_send_reply` on success — only a status code comes back, by design. Checked
+`uhttpd`'s `ubus.c`: when the ubus reply blob is empty, the JSON-RPC bridge emits `result`
+as a **one-element** array (`[status]`), not `[status, {}]`. So `data` is `undefined` on
+*every single* `uci.set`/`uci.delete`/`uci.commit` call regardless of outcome — this bug
+hit every mutating code path in the app (SSID/mesh/radio edits, LAN/WAN, DHCP reservations,
+firewall redirects, reboot, password change, etc.), not just wifi creation; wifi creation
+just happened to be the one the user hit first/reported.
+
+Confirmed `uci.add` does reply with data (`{"section": "..."}`) on success, so calls that
+need a returned value (e.g. the new section id) were never affected.
+
+**Fix** (`lib/openwrt.ts`): split the private RPC helper into `call<T>()` (existing
+behavior — requires `status===0` *and* a data payload, used by get/add/session/iwinfo/etc.)
+and a new `callVoid()` (requires only `status===0`, no data payload expected), and switched
+every fire-and-forget RPC (`uciSet`, `uciDelete`, `uciCommit`, `reboot`, `setPassword`) to
+`callVoid`. Both share the same session/retry logic via a new private `invoke()`.
+
+### Anonymous `wifi-iface` sections (the LuCI migration prompt)
+Separately, `app/api/wifi/route.ts` and `app/api/mesh/route.ts` created new `wifi-iface`
+sections via `uciAdd(..., values)` with no `name` argument — i.e. anonymous sections. Valid
+for uci/ubus, but it's exactly the condition that trips LuCI's one-time "wireless
+configuration migration" screen the next time anyone opens LuCI on that router. Fixed by
+computing the same `wifinet<N>` name LuCI itself would assign (`nextWifinetName()`, new
+export in `lib/wireless.ts`, next unused index in that router's wireless config) and passing
+it as the `name` argument, so sections created by this app come out already named and never
+trigger that prompt. `app/api/wifi/route.ts`'s targets loop was already sequential per
+target so this is race-free there; `app/api/mesh/route.ts`'s target loop was
+`Promise.all`-parallel and joining two radios *on the same router* at once would have raced
+two `nextWifinetName()` computations into the same name — regrouped it to run one router's
+targets sequentially while still running different routers in parallel.
+
+### "Too few settings"
+Added a **Client isolation** checkbox to the Create SSID form (`isolate` uci option),
+alongside the existing Hide SSID broadcast checkbox. Left VLAN/multi-network trunking out
+of scope — it's already explicitly called out as a future phase on the Networks settings
+page (`NextPhaseFeature`), not something to bolt onto SSID creation ad hoc.
+
+### Verification
+`tsc --noEmit`, `next lint`, `next build` all clean. No live router available in this
+sandbox to test the RPC round-trip directly; verified the fix against the actual `rpcd`/
+`uhttpd` source (quoted above) rather than guessing at ubus reply shape.

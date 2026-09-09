@@ -92,6 +92,18 @@ export async function loadMeshIfaces(client: OpenWrtClient): Promise<MeshSummary
   }));
 }
 
+/** Mirrors LuCI's own "wireless configuration migration": rather than let a new wifi-iface section come out
+ * anonymous (which forces that migration prompt in LuCI the next time someone opens it there), assign it a
+ * stable name of the form wifinet<N>, using the next index not already taken in this device's wireless config. */
+export function nextWifinetName(config: Record<string, UciSection>): string {
+  let max = -1;
+  for (const name of Object.keys(config)) {
+    const match = /^wifinet(\d+)$/.exec(name);
+    if (match) max = Math.max(max, Number(match[1]));
+  }
+  return `wifinet${max + 1}`;
+}
+
 /** Human label for a uci wireless `encryption` value (e.g. "psk2" -> "WPA2 Personal"). */
 export function securityLabel(encryption: string): string {
   if (!encryption || encryption === "none") return "Open";
